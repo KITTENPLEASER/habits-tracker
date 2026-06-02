@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN pip install fastapi uvicorn sqlalchemy asyncpg
+RUN pip install fastapi uvicorn sqlalchemy asyncpg python-jose passlib bcrypt==4.0.1 python-multipart
 
 EXPOSE 8000
 
