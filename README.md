@@ -1,6 +1,6 @@
 # Habits Tracker API
 
-REST API для отслеживания привычек.
+**REST API для отслеживания привычек с небольшим фронтендом.**
 
 ## Стек технологий
 - Python 3.13
@@ -8,20 +8,31 @@ REST API для отслеживания привычек.
 - PostgreSQL
 - SQLAlchemy
 - Uvicorn
+- Docker + docker-compose
 
-## Запуск
+## Запуск через докер
+
+```bash
+docker-compose up --build
+```
+
+## Локальный запуск
 
 1. Необходимо установить зависимости
 
-`pip install fastapi uvicorn sqlalchemy asyncpg`
+```bash
+pip install fastapi uvicorn sqlalchemy asyncpg
+```
 
 2. Настроить подключения к базе данных в `database.py`
 
 3. Запустить сервер
 
-`uvicorn main:app --reload`
+```bash
+uvicorn main:app --reload
+```
 
-4. Открыть http://localhost:8000
+4. Открыть `http://localhost:8000`
 
 ## Эндпоинты
 
@@ -32,3 +43,5 @@ REST API для отслеживания привычек.
 | POST | /habits      | Создать привычку |
 | PUT | /habits/{id} | Обновить привычку |
 | DELETE | /habits/{id} | Удалить привычку |
+
+**Докуметация: `http://localhost:8000/docs`**
