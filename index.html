@@ -34,8 +34,10 @@
     padding-bottom: 24px;
     display: flex;
     align-items: baseline;
-    gap: 16px;
+    justify-content: space-between;
   }
+
+  .header-left { display: flex; align-items: baseline; gap: 16px; }
 
   h1 {
     font-family: 'Unbounded', sans-serif;
@@ -52,6 +54,27 @@
     text-transform: uppercase;
   }
 
+  .user-info {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .btn-logout {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-logout:hover { color: var(--red); border-color: var(--red); opacity: 1; }
+
   .form-block {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -61,17 +84,40 @@
   }
 
   .form-block::before {
-    content: 'Новая привычка';
     position: absolute;
     top: -10px;
     left: 16px;
     background: var(--bg);
     padding: 0 8px;
-    text-transform: uppercase;
     font-size: 10px;
     color: var(--accent);
     letter-spacing: 2px;
+    text-transform: uppercase;
   }
+
+  .form-block.auth::before { content: 'Авторизация'; }
+  .form-block.new-habit::before { content: 'Новая привычка'; }
+
+  .tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+  }
+
+  .tab {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 6px 16px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-right: -1px;
+  }
+
+  .tab.active { color: var(--accent); border-color: var(--accent); z-index: 1; }
+  .tab:hover:not(.active) { color: var(--text); opacity: 1; }
 
   input {
     width: 100%;
@@ -132,7 +178,6 @@
   }
 
   .habit-item:hover { border-color: #333; }
-
   .habit-info { flex: 1; min-width: 0; }
 
   .habit-name {
@@ -152,12 +197,7 @@
     text-overflow: ellipsis;
   }
 
-  .habit-id {
-    font-size: 10px;
-    color: var(--border);
-    min-width: 28px;
-    text-align: right;
-  }
+  .habit-id { font-size: 10px; color: var(--border); min-width: 28px; }
 
   .btn-delete {
     background: transparent;
@@ -169,56 +209,128 @@
     transition: all 0.2s;
   }
 
-  .btn-delete:hover {
-    background: var(--red);
-    color: #fff;
-    border-color: var(--red);
-    opacity: 1;
-  }
+  .btn-delete:hover { background: var(--red); color: #fff; border-color: var(--red); opacity: 1; }
 
-  .empty {
-    color: var(--muted);
-    font-size: 12px;
-    padding: 24px 0;
-    text-align: center;
-    letter-spacing: 2px;
-  }
+  .empty { color: var(--muted); font-size: 12px; padding: 24px 0; text-align: center; letter-spacing: 2px; }
 
-  .status {
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 8px;
-    height: 16px;
-    transition: color 0.2s;
-  }
-
+  .status { font-size: 11px; color: var(--muted); margin-top: 8px; height: 16px; transition: color 0.2s; }
   .status.ok { color: var(--accent); }
   .status.err { color: var(--red); }
+
+  #app-view { display: none; }
+  #auth-view { display: block; }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1>Список привычек</h1>
+    <div class="header-left">
+      <h1>СПИСОК ПРИВЫЧЕК</h1>
+    </div>
+    <div class="user-info" id="user-info" style="display:none">
+      <span id="username-display"></span>
+      <button class="btn-logout" onclick="logout()">выйти</button>
+    </div>
   </header>
 
-  <div class="form-block">
-    <input id="inp-name" type="text" placeholder="название привычки" />
-    <input id="inp-desc" type="text" placeholder="описание (необязательно)" />
-    <button onclick="createHabit()">+ добавить</button>
-    <div class="status" id="status"></div>
+  <!-- AUTH -->
+  <div id="auth-view">
+    <div class="form-block auth">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('login')">войти</button>
+        <button class="tab" onclick="switchTab('register')">регистрация</button>
+      </div>
+      <input id="auth-username" type="text" placeholder="имя пользователя" />
+      <input id="auth-password" type="password" placeholder="пароль" />
+      <button id="auth-btn" onclick="doAuth()">войти</button>
+      <div class="status" id="auth-status"></div>
+    </div>
   </div>
 
-  <div class="section-label">список привычек</div>
-  <div id="habits-list"></div>
+  <!-- APP -->
+  <div id="app-view">
+    <div class="form-block new-habit">
+      <input id="inp-name" type="text" placeholder="название привычки" />
+      <input id="inp-desc" type="text" placeholder="описание (необязательно)" />
+      <button onclick="createHabit()">+ добавить</button>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="section-label">список привычек</div>
+    <div id="habits-list"></div>
+  </div>
 </div>
 
 <script>
   const API = 'http://localhost:8000';
+  let token = null;
+  let currentTab = 'login';
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1));
+    });
+    document.getElementById('auth-btn').textContent = tab === 'login' ? 'войти' : 'зарегистрироваться';
+  }
+
+  async function doAuth() {
+    const username = document.getElementById('auth-username').value.trim();
+    const password = document.getElementById('auth-password').value.trim();
+    if (!username || !password) { setAuthStatus('// заполни все поля', 'err'); return; }
+
+    if (currentTab === 'register') {
+      const res = await fetch(`${API}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      if (res.ok) {
+        setAuthStatus('// зарегистрирован, входим...', 'ok');
+        switchTab('login');
+        setTimeout(() => doLogin(username, password), 500);
+      } else {
+        setAuthStatus('// ошибка регистрации', 'err');
+      }
+    } else {
+      doLogin(username, password);
+    }
+  }
+
+  async function doLogin(username, password) {
+    const body = new URLSearchParams({ username, password });
+    const res = await fetch(`${API}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    if (res.ok) {
+      const data = await res.json();
+      token = data.access_token;
+      document.getElementById('auth-view').style.display = 'none';
+      document.getElementById('app-view').style.display = 'block';
+      document.getElementById('user-info').style.display = 'flex';
+      document.getElementById('username-display').textContent = username;
+      loadHabits();
+    } else {
+      setAuthStatus('// неверный логин или пароль', 'err');
+    }
+  }
+
+  function logout() {
+    token = null;
+    document.getElementById('auth-view').style.display = 'block';
+    document.getElementById('app-view').style.display = 'none';
+    document.getElementById('user-info').style.display = 'none';
+    document.getElementById('habits-list').innerHTML = '';
+  }
+
+  function authHeaders() {
+    return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+  }
 
   async function loadHabits() {
     try {
-      const res = await fetch(`${API}/habits`);
+      const res = await fetch(`${API}/habits`, { headers: authHeaders() });
       const data = await res.json();
       renderHabits(data);
     } catch {
@@ -228,10 +340,7 @@
 
   function renderHabits(habits) {
     const el = document.getElementById('habits-list');
-    if (!habits.length) {
-      el.innerHTML = '<div class="empty">// привычек пока нет</div>';
-      return;
-    }
+    if (!habits.length) { el.innerHTML = '<div class="empty">// привычек пока нет</div>'; return; }
     el.innerHTML = habits.map(h => `
       <div class="habit-item" id="habit-${h.id}">
         <span class="habit-id">#${h.id}</span>
@@ -247,14 +356,11 @@
   async function createHabit() {
     const name = document.getElementById('inp-name').value.trim();
     const description = document.getElementById('inp-desc').value.trim();
-    const status = document.getElementById('status');
-
     if (!name) { setStatus('// введи название', 'err'); return; }
-
     try {
       const res = await fetch(`${API}/habits`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ name, description: description || null })
       });
       if (res.ok) {
@@ -268,19 +374,22 @@
 
   async function deleteHabit(id) {
     try {
-      await fetch(`${API}/habits/${id}`, { method: 'DELETE' });
+      await fetch(`${API}/habits/${id}`, { method: 'DELETE', headers: authHeaders() });
       loadHabits();
     } catch { setStatus('// ошибка удаления', 'err'); }
   }
 
   function setStatus(msg, type) {
     const el = document.getElementById('status');
-    el.textContent = msg;
-    el.className = 'status ' + type;
+    el.textContent = msg; el.className = 'status ' + type;
     setTimeout(() => { el.textContent = ''; el.className = 'status'; }, 2000);
   }
 
-  loadHabits();
+  function setAuthStatus(msg, type) {
+    const el = document.getElementById('auth-status');
+    el.textContent = msg; el.className = 'status ' + type;
+    setTimeout(() => { el.textContent = ''; el.className = 'status'; }, 2000);
+  }
 </script>
 </body>
 </html>
