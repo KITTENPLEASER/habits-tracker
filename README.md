@@ -49,4 +49,4 @@ uvicorn main:app --reload
 | PUT | /habits/{id} | Обновить привычку |
 | DELETE | /habits/{id} | Удалить привычку |
 
-**Докуметация: `http://localhost:8000/docs`**
+**Документация: `http://localhost:8000/docs`**
