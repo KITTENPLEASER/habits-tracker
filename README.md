@@ -8,6 +8,7 @@
 - PostgreSQL
 - SQLAlchemy
 - Uvicorn
+- JWT авторизация
 - Docker + docker-compose
 
 ## Запуск через докер
@@ -23,7 +24,7 @@ docker-compose up --build
 1. Необходимо установить зависимости
 
 ```bash
-pip install fastapi uvicorn sqlalchemy asyncpg
+pip install fastapi uvicorn sqlalchemy asyncpg python-jose passlib bcrypt python-multipart
 ```
 
 2. Настроить подключения к базе данных в `database.py`
