@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Habits</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Unbounded:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --border: #222222;
+    --accent: #c8f135;
+    --text: #f0f0f0;
+    --muted: #555;
+    --red: #ff4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .container { max-width: 680px; margin: 0 auto; }
+
+  header {
+    margin-bottom: 48px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  h1 {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    color: var(--accent);
+  }
+
+  .subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .form-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 24px;
+    margin-bottom: 32px;
+    position: relative;
+  }
+
+  .form-block::before {
+    content: 'Новая привычка';
+    position: absolute;
+    top: -10px;
+    left: 16px;
+    background: var(--bg);
+    padding: 0 8px;
+    text-transform: uppercase;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 10px 0;
+    margin-bottom: 16px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus { border-bottom-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+
+  button {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 10px 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  button:hover { opacity: 0.85; }
+
+  .section-label {
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .habit-item {
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    transition: border-color 0.2s;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .habit-item:hover { border-color: #333; }
+
+  .habit-info { flex: 1; min-width: 0; }
+
+  .habit-name {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .habit-desc {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .habit-id {
+    font-size: 10px;
+    color: var(--border);
+    min-width: 28px;
+    text-align: right;
+  }
+
+  .btn-delete {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+
+  .btn-delete:hover {
+    background: var(--red);
+    color: #fff;
+    border-color: var(--red);
+    opacity: 1;
+  }
+
+  .empty {
+    color: var(--muted);
+    font-size: 12px;
+    padding: 24px 0;
+    text-align: center;
+    letter-spacing: 2px;
+  }
+
+  .status {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 8px;
+    height: 16px;
+    transition: color 0.2s;
+  }
+
+  .status.ok { color: var(--accent); }
+  .status.err { color: var(--red); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Список привычек</h1>
+  </header>
+
+  <div class="form-block">
+    <input id="inp-name" type="text" placeholder="название привычки" />
+    <input id="inp-desc" type="text" placeholder="описание (необязательно)" />
+    <button onclick="createHabit()">+ добавить</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="section-label">список привычек</div>
+  <div id="habits-list"></div>
+</div>
+
+<script>
+  const API = 'http://localhost:8000';
+
+  async function loadHabits() {
+    try {
+      const res = await fetch(`${API}/habits`);
+      const data = await res.json();
+      renderHabits(data);
+    } catch {
+      document.getElementById('habits-list').innerHTML = '<div class="empty">// нет соединения с сервером</div>';
+    }
+  }
+
+  function renderHabits(habits) {
+    const el = document.getElementById('habits-list');
+    if (!habits.length) {
+      el.innerHTML = '<div class="empty">// привычек пока нет</div>';
+      return;
+    }
+    el.innerHTML = habits.map(h => `
+      <div class="habit-item" id="habit-${h.id}">
+        <span class="habit-id">#${h.id}</span>
+        <div class="habit-info">
+          <div class="habit-name">${h.name}</div>
+          ${h.description ? `<div class="habit-desc">${h.description}</div>` : ''}
+        </div>
+        <button class="btn-delete" onclick="deleteHabit(${h.id})">удалить</button>
+      </div>
+    `).join('');
+  }
+
+  async function createHabit() {
+    const name = document.getElementById('inp-name').value.trim();
+    const description = document.getElementById('inp-desc').value.trim();
+    const status = document.getElementById('status');
+
+    if (!name) { setStatus('// введи название', 'err'); return; }
+
+    try {
+      const res = await fetch(`${API}/habits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description: description || null })
+      });
+      if (res.ok) {
+        document.getElementById('inp-name').value = '';
+        document.getElementById('inp-desc').value = '';
+        setStatus('// добавлено', 'ok');
+        loadHabits();
+      }
+    } catch { setStatus('// ошибка соединения', 'err'); }
+  }
+
+  async function deleteHabit(id) {
+    try {
+      await fetch(`${API}/habits/${id}`, { method: 'DELETE' });
+      loadHabits();
+    } catch { setStatus('// ошибка удаления', 'err'); }
+  }
+
+  function setStatus(msg, type) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status ' + type;
+    setTimeout(() => { el.textContent = ''; el.className = 'status'; }, 2000);
+  }
+
+  loadHabits();
+</script>
+</body>
+</html>
