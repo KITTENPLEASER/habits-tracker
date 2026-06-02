@@ -19,7 +19,7 @@ REST API для отслеживания привычек.
 
 3. Запустить сервер
 
-`uvicorn main:app -- reload`
+`uvicorn main:app --reload`
 
 4. Открыть http://localhost:8000
 
