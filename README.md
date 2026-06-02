@@ -13,6 +13,8 @@
 ## Запуск через докер
 
 ```bash
+git clone https://github.com/KITTENPLEASER/habits-tracker.git
+cd habits-tracker
 docker-compose up --build
 ```
 
