@@ -91,7 +91,6 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 async def get_own_task(task_id: int, db: DB, user: CurrentUser) -> Task:
     task = await db.get(Task, task_id)
-    # Чужая задача выглядит как несуществующая — не раскрываем, что такой id есть
     if task is None or task.user_id != user.id:
         raise HTTPException(status_code=404, detail="Задача не найдена")
     return task
@@ -181,7 +180,6 @@ async def delete_task(task: OwnTask, db: DB):
 
 @app.delete("/tasks", status_code=204)
 async def delete_completed(db: DB, user: CurrentUser):
-    """Удаляет все выполненные задачи текущего пользователя."""
     await db.execute(delete(Task).where(Task.user_id == user.id, Task.done.is_(True)))
     await db.commit()
     return Response(status_code=204)

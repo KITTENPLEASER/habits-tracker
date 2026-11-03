@@ -24,7 +24,7 @@
 ```bash
 git clone https://github.com/KITTENPLEASER/habits-tracker.git
 cd habits-tracker
-cp .env.example .env        # и впиши SECRET_KEY
+cp .env.example .env.example
 docker compose up --build
 ```
 
@@ -37,7 +37,6 @@ python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# самый простой вариант — SQLite, Postgres не нужен
 export DATABASE_URL="sqlite+aiosqlite:///./todo.db"
 export SECRET_KEY="любая-длинная-случайная-строка"
 

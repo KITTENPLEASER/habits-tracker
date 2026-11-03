@@ -3,8 +3,6 @@ import os
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-# По умолчанию — локальный PostgreSQL. В Docker адрес передаётся через переменную окружения.
-# Для быстрого запуска без Postgres можно указать: sqlite+aiosqlite:///./todo.db
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql+asyncpg://postgres:postgres@localhost:5432/todo_db",

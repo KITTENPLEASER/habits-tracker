@@ -8,7 +8,6 @@ import jwt
 
 logger = logging.getLogger(__name__)
 
-# Секрет берётся из окружения и никогда не хранится в репозитории.
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     SECRET_KEY = secrets.token_hex(32)
@@ -19,7 +18,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 
 
 
 def _encode(password: str) -> bytes:
-    # bcrypt учитывает только первые 72 байта пароля
     return password.encode("utf-8")[:72]
 
 
@@ -40,5 +38,4 @@ def create_access_token(subject: str) -> str:
 
 
 def decode_token(token: str) -> dict:
-    """Бросает jwt.PyJWTError, если токен невалиден или истёк."""
     return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

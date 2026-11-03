@@ -472,14 +472,14 @@
     const task = state.tasks.find((t) => t.id === id);
     if (!task) return;
     const prev = task.done;
-    task.done = !prev;               // оптимистично обновляем интерфейс
+    task.done = !prev;
     render();
     try {
       const updated = await api(`/tasks/${id}`, { method: 'PATCH', body: { done: task.done } });
       Object.assign(task, updated);
       render();
     } catch (err) {
-      task.done = prev;              // откатываем, если сервер не принял
+      task.done = prev;
       render();
       if (err.status !== 401) setStatus('status', '// ' + err.message, 'err');
     }
@@ -494,7 +494,7 @@
       render();
     } catch (err) {
       li?.classList.remove('pending');
-      if (err.status === 404) {      // уже удалена — просто убираем из списка
+      if (err.status === 404) {
         state.tasks = state.tasks.filter((t) => t.id !== id);
         render();
       } else if (err.status !== 401) {
