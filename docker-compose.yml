@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build: .
@@ -9,18 +7,22 @@ services:
       db:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:5432@db:5432/habits_db
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/todo_db
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-env-file}
 
   db:
-    image: postgres:15
+    image: postgres:16
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=5432
-      - POSTGRES_DB=habits_db
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: todo_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data   # данные не пропадают после перезапуска контейнера
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+volumes:
+  pgdata:

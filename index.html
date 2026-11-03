@@ -3,16 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Habits</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Unbounded:wght@300;400;700&display=swap" rel="stylesheet">
+<title>To-Do List</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0a0a0a;
     --surface: #111111;
     --border: #222222;
+    --border-hover: #333333;
     --accent: #c8f135;
     --text: #f0f0f0;
-    --muted: #555;
+    --muted: #6b6b6b;
     --red: #ff4444;
   }
 
@@ -23,21 +25,22 @@
     color: var(--text);
     font-family: 'JetBrains Mono', monospace;
     min-height: 100vh;
-    padding: 40px 20px;
+    padding: 40px 16px;
   }
 
   .container { max-width: 680px; margin: 0 auto; }
+  [hidden] { display: none !important; }
 
   header {
-    margin-bottom: 48px;
+    margin-bottom: 40px;
     border-bottom: 1px solid var(--border);
     padding-bottom: 24px;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
   }
-
-  .header-left { display: flex; align-items: baseline; gap: 16px; }
 
   h1 {
     font-family: 'Unbounded', sans-serif;
@@ -47,33 +50,38 @@
     color: var(--accent);
   }
 
-  .subtitle {
-    font-size: 11px;
-    color: var(--muted);
+  .user-info { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 12px; }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity .2s, color .2s, border-color .2s, background .2s;
+  }
+  button:focus-visible, input:focus-visible { outline: 1px dashed var(--accent); outline-offset: 3px; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 10px 24px;
+    font-size: 12px;
+    font-weight: 700;
     letter-spacing: 2px;
     text-transform: uppercase;
   }
+  .btn-primary:hover { opacity: .85; }
+  .btn-primary:disabled { opacity: .5; cursor: wait; }
 
-  .user-info {
-    font-size: 11px;
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .btn-logout {
+  .btn-ghost {
     background: transparent;
     color: var(--muted);
     border: 1px solid var(--border);
-    padding: 4px 10px;
-    font-size: 10px;
+    padding: 5px 10px;
+    font-size: 11px;
     letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.2s;
   }
-
-  .btn-logout:hover { color: var(--red); border-color: var(--red); opacity: 1; }
+  .btn-ghost:hover { color: var(--text); border-color: var(--border-hover); }
+  .btn-ghost.danger:hover { color: var(--red); border-color: var(--red); }
 
   .form-block {
     background: var(--surface);
@@ -82,10 +90,10 @@
     margin-bottom: 32px;
     position: relative;
   }
-
   .form-block::before {
+    content: attr(data-label);
     position: absolute;
-    top: -10px;
+    top: -9px;
     left: 16px;
     background: var(--bg);
     padding: 0 8px;
@@ -95,15 +103,7 @@
     text-transform: uppercase;
   }
 
-  .form-block.auth::before { content: 'Авторизация'; }
-  .form-block.new-habit::before { content: 'Новая привычка'; }
-
-  .tabs {
-    display: flex;
-    gap: 0;
-    margin-bottom: 24px;
-  }
-
+  .tabs { display: flex; margin-bottom: 20px; }
   .tab {
     background: transparent;
     color: var(--muted);
@@ -111,285 +111,487 @@
     padding: 6px 16px;
     font-size: 11px;
     letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.2s;
     margin-right: -1px;
   }
+  .tab[aria-selected="true"] { color: var(--accent); border-color: var(--accent); position: relative; z-index: 1; }
+  .tab:hover:not([aria-selected="true"]) { color: var(--text); }
 
-  .tab.active { color: var(--accent); border-color: var(--accent); z-index: 1; }
-  .tab:hover:not(.active) { color: var(--text); opacity: 1; }
-
-  input {
+  input[type="text"], input[type="password"] {
     width: 100%;
     background: transparent;
     border: none;
     border-bottom: 1px solid var(--border);
     color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: inherit;
     font-size: 14px;
     padding: 10px 0;
     margin-bottom: 16px;
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color .2s;
   }
-
   input:focus { border-bottom-color: var(--accent); }
   input::placeholder { color: var(--muted); }
 
-  button {
-    background: var(--accent);
-    color: #000;
-    border: none;
-    padding: 10px 24px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: opacity 0.2s;
-  }
+  .add-row { display: flex; gap: 12px; align-items: flex-end; }
+  .add-row input { margin-bottom: 0; }
+  .add-row .btn-primary { flex-shrink: 0; }
 
-  button:hover { opacity: 0.85; }
+  .status { font-size: 11px; color: var(--muted); margin-top: 10px; min-height: 16px; }
+  .status.ok { color: var(--accent); }
+  .status.err { color: var(--red); }
 
-  .section-label {
-    font-size: 10px;
-    color: var(--accent);
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-  }
-
-  .habit-item {
-    border: 1px solid var(--border);
-    padding: 16px 20px;
-    margin-bottom: 8px;
+  .toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    transition: border-color 0.2s;
-    animation: fadeIn 0.3s ease;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
   }
+  .filters { display: flex; }
+  .counter { font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+
+  .task-list { list-style: none; }
+
+  .task {
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: border-color .2s, opacity .2s;
+    animation: fadeIn .25s ease;
+  }
+  .task:hover { border-color: var(--border-hover); }
+  .task.pending { opacity: .5; }
 
   @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-8px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
   }
 
-  .habit-item:hover { border-color: #333; }
-  .habit-info { flex: 1; min-width: 0; }
-
-  .habit-name {
-    font-size: 14px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .habit-desc {
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .habit-id { font-size: 10px; color: var(--border); min-width: 28px; }
-
-  .btn-delete {
+  .check {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border: 1px solid var(--muted);
     background: transparent;
-    color: var(--muted);
-    border: 1px solid var(--border);
-    padding: 6px 12px;
-    font-size: 10px;
-    letter-spacing: 1px;
-    transition: all 0.2s;
+    cursor: pointer;
+    display: grid;
+    place-content: center;
+    transition: border-color .2s, background .2s;
   }
+  .check:hover { border-color: var(--accent); }
+  .check::after {
+    content: '';
+    width: 10px;
+    height: 6px;
+    border-left: 2px solid #000;
+    border-bottom: 2px solid #000;
+    transform: rotate(-45deg) translate(1px, -1px);
+    opacity: 0;
+  }
+  .check:checked { background: var(--accent); border-color: var(--accent); }
+  .check:checked::after { opacity: 1; }
 
-  .btn-delete:hover { background: var(--red); color: #fff; border-color: var(--red); opacity: 1; }
+  .task-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    transition: color .2s;
+  }
+  .task.done .task-title { color: var(--muted); text-decoration: line-through; }
 
-  .empty { color: var(--muted); font-size: 12px; padding: 24px 0; text-align: center; letter-spacing: 2px; }
+  .empty { color: var(--muted); font-size: 12px; padding: 32px 0; text-align: center; letter-spacing: 2px; }
 
-  .status { font-size: 11px; color: var(--muted); margin-top: 8px; height: 16px; transition: color 0.2s; }
-  .status.ok { color: var(--accent); }
-  .status.err { color: var(--red); }
+  .footer-row { display: flex; justify-content: flex-end; margin-top: 16px; }
 
-  #app-view { display: none; }
-  #auth-view { display: block; }
+  @media (max-width: 480px) {
+    body { padding: 24px 12px; }
+    h1 { font-size: 22px; }
+    .form-block { padding: 20px 16px; }
+    .add-row { flex-direction: column; align-items: stretch; }
+  }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <div class="header-left">
-      <h1>СПИСОК ПРИВЫЧЕК</h1>
-    </div>
-    <div class="user-info" id="user-info" style="display:none">
+    <h1>TO-DO</h1>
+    <div class="user-info" id="user-info" hidden>
       <span id="username-display"></span>
-      <button class="btn-logout" onclick="logout()">выйти</button>
+      <button class="btn-ghost danger" id="logout-btn" type="button">выйти</button>
     </div>
   </header>
 
-  <!-- AUTH -->
-  <div id="auth-view">
-    <div class="form-block auth">
-      <div class="tabs">
-        <button class="tab active" onclick="switchTab('login')">войти</button>
-        <button class="tab" onclick="switchTab('register')">регистрация</button>
+  <!-- Авторизация -->
+  <section id="auth-view">
+    <form class="form-block" data-label="Авторизация" id="auth-form" novalidate>
+      <div class="tabs" role="tablist">
+        <button class="tab" type="button" role="tab" data-tab="login" aria-selected="true">войти</button>
+        <button class="tab" type="button" role="tab" data-tab="register" aria-selected="false">регистрация</button>
       </div>
-      <input id="auth-username" type="text" placeholder="имя пользователя" />
-      <input id="auth-password" type="password" placeholder="пароль" />
-      <button id="auth-btn" onclick="doAuth()">войти</button>
-      <div class="status" id="auth-status"></div>
-    </div>
-  </div>
+      <input id="auth-username" type="text" placeholder="имя пользователя" autocomplete="username" maxlength="32">
+      <input id="auth-password" type="password" placeholder="пароль" autocomplete="current-password" maxlength="72">
+      <button class="btn-primary" id="auth-btn" type="submit">войти</button>
+      <div class="status" id="auth-status" role="status"></div>
+    </form>
+  </section>
 
-  <!-- APP -->
-  <div id="app-view">
-    <div class="form-block new-habit">
-      <input id="inp-name" type="text" placeholder="название привычки" />
-      <input id="inp-desc" type="text" placeholder="описание (необязательно)" />
-      <button onclick="createHabit()">+ добавить</button>
-      <div class="status" id="status"></div>
+  <!-- Приложение -->
+  <section id="app-view" hidden>
+    <form class="form-block" data-label="Новая задача" id="add-form" novalidate>
+      <div class="add-row">
+        <input id="inp-title" type="text" placeholder="что нужно сделать?" maxlength="200" autocomplete="off">
+        <button class="btn-primary" type="submit">+ добавить</button>
+      </div>
+      <div class="status" id="status" role="status"></div>
+    </form>
+
+    <div class="toolbar">
+      <div class="filters" role="tablist">
+        <button class="tab" type="button" role="tab" data-filter="all" aria-selected="true">все</button>
+        <button class="tab" type="button" role="tab" data-filter="active" aria-selected="false">активные</button>
+        <button class="tab" type="button" role="tab" data-filter="done" aria-selected="false">выполненные</button>
+      </div>
+      <span class="counter" id="counter"></span>
     </div>
-    <div class="section-label">список привычек</div>
-    <div id="habits-list"></div>
-  </div>
+
+    <ul class="task-list" id="task-list"></ul>
+
+    <div class="footer-row">
+      <button class="btn-ghost danger" id="clear-done-btn" type="button" hidden>удалить выполненные</button>
+    </div>
+  </section>
 </div>
 
 <script>
-  const API = 'http://localhost:8000';
-  let token = null;
-  let currentTab = 'login';
+  // Фронт открывается с того же сервера, что и API, поэтому пути относительные
+  const API = '';
+  const TOKEN_KEY = 'todo_token';
+  const USER_KEY = 'todo_user';
 
-  function switchTab(tab) {
-    currentTab = tab;
-    document.querySelectorAll('.tab').forEach((t, i) => {
-      t.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1));
-    });
-    document.getElementById('auth-btn').textContent = tab === 'login' ? 'войти' : 'зарегистрироваться';
+  const $ = (id) => document.getElementById(id);
+
+  const state = {
+    token: null,
+    username: null,
+    tasks: [],
+    filter: 'all',
+    authMode: 'login',
+  };
+
+  // ---------- Хранилище (токен переживает перезагрузку страницы) ----------
+
+  function saveSession() {
+    try {
+      localStorage.setItem(TOKEN_KEY, state.token);
+      localStorage.setItem(USER_KEY, state.username);
+    } catch {}
   }
 
-  async function doAuth() {
-    const username = document.getElementById('auth-username').value.trim();
-    const password = document.getElementById('auth-password').value.trim();
-    if (!username || !password) { setAuthStatus('// заполни все поля', 'err'); return; }
+  function loadSession() {
+    try {
+      state.token = localStorage.getItem(TOKEN_KEY);
+      state.username = localStorage.getItem(USER_KEY);
+    } catch {}
+  }
 
-    if (currentTab === 'register') {
-      const res = await fetch(`${API}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      if (res.ok) {
-        setAuthStatus('// зарегистрирован, входим...', 'ok');
-        switchTab('login');
-        setTimeout(() => doLogin(username, password), 500);
-      } else {
-        setAuthStatus('// ошибка регистрации', 'err');
-      }
-    } else {
-      doLogin(username, password);
+  function clearSession() {
+    state.token = null;
+    state.username = null;
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+    } catch {}
+  }
+
+  // ---------- Запросы ----------
+
+  class ApiError extends Error {
+    constructor(status, message) { super(message); this.status = status; }
+  }
+
+  async function api(path, { method = 'GET', body, form } = {}) {
+    const headers = {};
+    if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
+    let payload;
+    if (form) {
+      headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      payload = new URLSearchParams(form);
+    } else if (body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+      payload = JSON.stringify(body);
     }
+
+    let res;
+    try {
+      res = await fetch(API + path, { method, headers, body: payload });
+    } catch {
+      throw new ApiError(0, 'нет соединения с сервером');
+    }
+
+    if (res.status === 401 && state.token) {
+      clearSession();
+      showAuth();
+      setStatus('auth-status', '// сессия истекла, войди снова', 'err');
+      throw new ApiError(401, 'сессия истекла');
+    }
+    if (res.status === 204) return null;
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      let msg = 'что-то пошло не так';
+      if (typeof data?.detail === 'string') msg = data.detail;
+      else if (Array.isArray(data?.detail)) msg = 'проверь введённые данные';
+      throw new ApiError(res.status, msg.toLowerCase());
+    }
+    return data;
   }
 
-  async function doLogin(username, password) {
-    const body = new URLSearchParams({ username, password });
-    const res = await fetch(`${API}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body
+  // ---------- Статусы ----------
+
+  const statusTimers = {};
+  function setStatus(id, msg, type = '') {
+    const el = $(id);
+    el.textContent = msg;
+    el.className = 'status ' + type;
+    clearTimeout(statusTimers[id]);
+    statusTimers[id] = setTimeout(() => { el.textContent = ''; el.className = 'status'; }, 2500);
+  }
+
+  // ---------- Экраны ----------
+
+  function showAuth() {
+    $('auth-view').hidden = false;
+    $('app-view').hidden = true;
+    $('user-info').hidden = true;
+    state.tasks = [];
+    $('task-list').replaceChildren();
+    $('auth-password').value = '';
+  }
+
+  function showApp() {
+    $('auth-view').hidden = true;
+    $('app-view').hidden = false;
+    $('user-info').hidden = false;
+    $('username-display').textContent = state.username || '';
+    $('inp-title').focus();
+    loadTasks();
+  }
+
+  // ---------- Авторизация ----------
+
+  function setAuthMode(mode) {
+    state.authMode = mode;
+    document.querySelectorAll('[data-tab]').forEach((t) => {
+      t.setAttribute('aria-selected', String(t.dataset.tab === mode));
     });
-    if (res.ok) {
-      const data = await res.json();
-      token = data.access_token;
-      document.getElementById('auth-view').style.display = 'none';
-      document.getElementById('app-view').style.display = 'block';
-      document.getElementById('user-info').style.display = 'flex';
-      document.getElementById('username-display').textContent = username;
-      loadHabits();
-    } else {
-      setAuthStatus('// неверный логин или пароль', 'err');
+    $('auth-btn').textContent = mode === 'login' ? 'войти' : 'зарегистрироваться';
+    $('auth-password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+  }
+
+  async function login(username, password) {
+    const data = await api('/login', { method: 'POST', form: { username, password } });
+    state.token = data.access_token;
+    state.username = username;
+    saveSession();
+    showApp();
+  }
+
+  async function onAuthSubmit(e) {
+    e.preventDefault();
+    const username = $('auth-username').value.trim();
+    const password = $('auth-password').value;
+    if (!username || !password) return setStatus('auth-status', '// заполни все поля', 'err');
+
+    if (state.authMode === 'register') {
+      if (username.length < 3) return setStatus('auth-status', '// имя — минимум 3 символа', 'err');
+      if (!/^[\w.-]+$/.test(username)) return setStatus('auth-status', '// имя: буквы, цифры, _ . -', 'err');
+      if (password.length < 6) return setStatus('auth-status', '// пароль — минимум 6 символов', 'err');
+    }
+
+    const btn = $('auth-btn');
+    btn.disabled = true;
+    try {
+      if (state.authMode === 'register') {
+        await api('/register', { method: 'POST', body: { username, password } });
+        setAuthMode('login');
+      }
+      await login(username, password);
+    } catch (err) {
+      setStatus('auth-status', '// ' + err.message, 'err');
+    } finally {
+      btn.disabled = false;
     }
   }
 
   function logout() {
-    token = null;
-    document.getElementById('auth-view').style.display = 'block';
-    document.getElementById('app-view').style.display = 'none';
-    document.getElementById('user-info').style.display = 'none';
-    document.getElementById('habits-list').innerHTML = '';
+    clearSession();
+    showAuth();
+    $('auth-username').focus();
   }
 
-  function authHeaders() {
-    return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
-  }
+  // ---------- Задачи ----------
 
-  async function loadHabits() {
+  async function loadTasks() {
     try {
-      const res = await fetch(`${API}/habits`, { headers: authHeaders() });
-      const data = await res.json();
-      renderHabits(data);
-    } catch {
-      document.getElementById('habits-list').innerHTML = '<div class="empty">// нет соединения с сервером</div>';
+      state.tasks = await api('/tasks');
+      render();
+    } catch (err) {
+      if (err.status !== 401) {
+        $('task-list').replaceChildren(emptyItem('// ' + err.message));
+      }
     }
   }
 
-  function renderHabits(habits) {
-    const el = document.getElementById('habits-list');
-    if (!habits.length) { el.innerHTML = '<div class="empty">// привычек пока нет</div>'; return; }
-    el.innerHTML = habits.map(h => `
-      <div class="habit-item" id="habit-${h.id}">
-        <span class="habit-id">#${h.id}</span>
-        <div class="habit-info">
-          <div class="habit-name">${h.name}</div>
-          ${h.description ? `<div class="habit-desc">${h.description}</div>` : ''}
-        </div>
-        <button class="btn-delete" onclick="deleteHabit(${h.id})">удалить</button>
-      </div>
-    `).join('');
+  async function addTask(e) {
+    e.preventDefault();
+    const input = $('inp-title');
+    const title = input.value.trim();
+    if (!title) return setStatus('status', '// введи задачу', 'err');
+    try {
+      const task = await api('/tasks', { method: 'POST', body: { title } });
+      state.tasks.unshift(task);
+      input.value = '';
+      if (state.filter === 'done') setFilter('all');
+      render();
+      setStatus('status', '// добавлено', 'ok');
+    } catch (err) {
+      if (err.status !== 401) setStatus('status', '// ' + err.message, 'err');
+    }
+    input.focus();
   }
 
-  async function createHabit() {
-    const name = document.getElementById('inp-name').value.trim();
-    const description = document.getElementById('inp-desc').value.trim();
-    if (!name) { setStatus('// введи название', 'err'); return; }
+  async function toggleTask(id) {
+    const task = state.tasks.find((t) => t.id === id);
+    if (!task) return;
+    const prev = task.done;
+    task.done = !prev;               // оптимистично обновляем интерфейс
+    render();
     try {
-      const res = await fetch(`${API}/habits`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ name, description: description || null })
-      });
-      if (res.ok) {
-        document.getElementById('inp-name').value = '';
-        document.getElementById('inp-desc').value = '';
-        setStatus('// добавлено', 'ok');
-        loadHabits();
+      const updated = await api(`/tasks/${id}`, { method: 'PATCH', body: { done: task.done } });
+      Object.assign(task, updated);
+      render();
+    } catch (err) {
+      task.done = prev;              // откатываем, если сервер не принял
+      render();
+      if (err.status !== 401) setStatus('status', '// ' + err.message, 'err');
+    }
+  }
+
+  async function deleteTask(id) {
+    const li = document.querySelector(`[data-id="${id}"]`);
+    li?.classList.add('pending');
+    try {
+      await api(`/tasks/${id}`, { method: 'DELETE' });
+      state.tasks = state.tasks.filter((t) => t.id !== id);
+      render();
+    } catch (err) {
+      li?.classList.remove('pending');
+      if (err.status === 404) {      // уже удалена — просто убираем из списка
+        state.tasks = state.tasks.filter((t) => t.id !== id);
+        render();
+      } else if (err.status !== 401) {
+        setStatus('status', '// ' + err.message, 'err');
       }
-    } catch { setStatus('// ошибка соединения', 'err'); }
+    }
   }
 
-  async function deleteHabit(id) {
+  async function clearDone() {
     try {
-      await fetch(`${API}/habits/${id}`, { method: 'DELETE', headers: authHeaders() });
-      loadHabits();
-    } catch { setStatus('// ошибка удаления', 'err'); }
+      await api('/tasks', { method: 'DELETE' });
+      state.tasks = state.tasks.filter((t) => !t.done);
+      render();
+    } catch (err) {
+      if (err.status !== 401) setStatus('status', '// ' + err.message, 'err');
+    }
   }
 
-  function setStatus(msg, type) {
-    const el = document.getElementById('status');
-    el.textContent = msg; el.className = 'status ' + type;
-    setTimeout(() => { el.textContent = ''; el.className = 'status'; }, 2000);
+  function setFilter(filter) {
+    state.filter = filter;
+    document.querySelectorAll('[data-filter]').forEach((t) => {
+      t.setAttribute('aria-selected', String(t.dataset.filter === filter));
+    });
+    render();
   }
 
-  function setAuthStatus(msg, type) {
-    const el = document.getElementById('auth-status');
-    el.textContent = msg; el.className = 'status ' + type;
-    setTimeout(() => { el.textContent = ''; el.className = 'status'; }, 2000);
+  // ---------- Отрисовка (textContent вместо innerHTML — защита от XSS) ----------
+
+  function emptyItem(text) {
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = text;
+    return li;
   }
+
+  function taskItem(task) {
+    const li = document.createElement('li');
+    li.className = 'task' + (task.done ? ' done' : '');
+    li.dataset.id = task.id;
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'check';
+    checkbox.checked = task.done;
+    checkbox.setAttribute('aria-label', 'выполнено');
+    checkbox.addEventListener('change', () => toggleTask(task.id));
+
+    const title = document.createElement('span');
+    title.className = 'task-title';
+    title.textContent = task.title;
+    title.addEventListener('click', () => toggleTask(task.id));
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'btn-ghost danger';
+    del.textContent = 'удалить';
+    del.setAttribute('aria-label', `удалить задачу «${task.title}»`);
+    del.addEventListener('click', () => deleteTask(task.id));
+
+    li.append(checkbox, title, del);
+    return li;
+  }
+
+  function render() {
+    const list = $('task-list');
+    const visible = state.tasks.filter((t) =>
+      state.filter === 'all' ? true : state.filter === 'done' ? t.done : !t.done
+    );
+
+    if (!visible.length) {
+      const text = state.tasks.length === 0 ? '// задач пока нет'
+        : state.filter === 'done' ? '// выполненных задач нет'
+        : '// всё сделано 🎉';
+      list.replaceChildren(emptyItem(text));
+    } else {
+      list.replaceChildren(...visible.map(taskItem));
+    }
+
+    const total = state.tasks.length;
+    const done = state.tasks.filter((t) => t.done).length;
+    $('counter').textContent = total ? `${done} / ${total} выполнено` : '';
+    $('clear-done-btn').hidden = done === 0;
+  }
+
+  // ---------- Старт ----------
+
+  document.querySelectorAll('[data-tab]').forEach((t) =>
+    t.addEventListener('click', () => setAuthMode(t.dataset.tab)));
+  document.querySelectorAll('[data-filter]').forEach((t) =>
+    t.addEventListener('click', () => setFilter(t.dataset.filter)));
+  $('auth-form').addEventListener('submit', onAuthSubmit);
+  $('add-form').addEventListener('submit', addTask);
+  $('logout-btn').addEventListener('click', logout);
+  $('clear-done-btn').addEventListener('click', clearDone);
+
+  loadSession();
+  if (state.token) showApp(); else showAuth();
 </script>
 </body>
 </html>

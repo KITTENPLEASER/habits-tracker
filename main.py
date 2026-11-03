@@ -1,121 +1,187 @@
-from typing import Optional
-from fastapi import FastAPI, Depends, HTTPException
-from database import engine, Base, async_session
-from models import Habit, User
-from sqlalchemy import select
-from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from datetime import datetime
+from pathlib import Path
+from typing import Annotated, Optional
+
+import jwt
+from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.responses import FileResponse
-from auth import hash_password, verify_password, create_access_token, decode_token
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-class HabitCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
+from auth import create_access_token, decode_token, hash_password, verify_password
+from database import Base, engine, get_db
+from models import Task, User
 
-class HabitUpdate(BaseModel):
-    name: str = None
-    description: Optional[str] = None
+BASE_DIR = Path(__file__).resolve().parent
+
+
+# ---------- Схемы ----------
 
 class UserCreate(BaseModel):
+    username: str = Field(min_length=3, max_length=32, pattern=r"^[\w.-]+$")
+    password: str = Field(min_length=6, max_length=72)
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
     username: str
-    password: str
 
-app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=['*'],
-    allow_methods=['*'],
-    allow_headers=['*']
-)
+class TaskCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = decode_token(token)
-        username = payload.get("sub")
-        if not username:
-            raise HTTPException(status_code=401, detail="Невалидный токен")
-        return username
-    except:
-        raise HTTPException(status_code=401, detail="Невалидный токен")
+class TaskUpdate(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    done: Optional[bool] = None
 
-@app.on_event("startup")
-async def startup():
+
+class TaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    title: str
+    done: bool
+    created_at: datetime
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+# ---------- Приложение ----------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    yield
+    await engine.dispose()
 
-@app.get("/")
+
+app = FastAPI(title="To-Do List API", lifespan=lifespan)
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+DB = Annotated[AsyncSession, Depends(get_db)]
+
+
+async def get_current_user(db: DB, token: str = Depends(oauth2_scheme)) -> User:
+    unauthorized = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Невалидный или просроченный токен",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        user_id = int(decode_token(token)["sub"])
+    except (jwt.PyJWTError, KeyError, ValueError):
+        raise unauthorized
+    user = await db.get(User, user_id)
+    if user is None:
+        raise unauthorized
+    return user
+
+
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def get_own_task(task_id: int, db: DB, user: CurrentUser) -> Task:
+    task = await db.get(Task, task_id)
+    # Чужая задача выглядит как несуществующая — не раскрываем, что такой id есть
+    if task is None or task.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+    return task
+
+
+OwnTask = Annotated[Task, Depends(get_own_task)]
+
+
+# ---------- Фронтенд ----------
+
+@app.get("/", include_in_schema=False)
 async def root():
-    return FileResponse("index.html")
+    return FileResponse(BASE_DIR / "index.html")
 
-@app.post("/habits")
-async def create_habit(habit: HabitCreate,  current_user: str = Depends(get_current_user)):
-    async with async_session() as session:
-        new_habit = Habit(name = habit.name, description = habit.description)
-        session.add(new_habit)
-        await session.commit()
-        await session.refresh(new_habit)
-        return new_habit
 
-@app.get("/habits")
-async def get_habits(current_user: str = Depends(get_current_user)):
-    async with async_session() as session:
-        result = await session.execute(select(Habit))
-        habits = result.scalars().all()
-        return habits
+# ---------- Авторизация ----------
 
-@app.get("/habits/{habit_id}")
-async def get_habit(habit_id: int,  current_user: str = Depends(get_current_user)):
-    async with async_session() as session:
-        habit = await session.get(Habit, habit_id)
-        if not habit:
-            return {"error": "Привычка не найдена"}
-        else:
-            return habit
+@app.post("/register", response_model=UserOut, status_code=201)
+async def register(data: UserCreate, db: DB):
+    user = User(username=data.username, hashed_password=hash_password(data.password))
+    db.add(user)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Такой пользователь уже существует")
+    await db.refresh(user)
+    return user
 
-@app.delete("/habits/{habit_id}")
-async def delete_habit(habit_id: int,  current_user: str = Depends(get_current_user)):
-    async with async_session() as session:
-        habit = await session.get(Habit, habit_id)
-        if not habit:
-            return {"error": "Привычка не найдена"}
-        else:
-            await session.delete(habit)
-            await session.commit()
-            return {"message": f"Привычка {habit_id} удалена"}
 
-@app.put("/habits/{habit_id}")
-async def update_habit(habit_id: int, data: HabitUpdate,  current_user: str = Depends(get_current_user)):
-    async with async_session() as session:
-        habit = await session.get(Habit, habit_id)
-        if not habit:
-            return {"error": "Привычка не найдена"}
-        else:
-            if data.name:
-                habit.name = data.name
-            if data.description:
-                habit.description = data.description
-            await session.commit()
-            await session.refresh(habit)
-            return habit
+@app.post("/login", response_model=Token)
+async def login(db: DB, form_data: OAuth2PasswordRequestForm = Depends()):
+    result = await db.execute(select(User).where(User.username == form_data.username))
+    user = result.scalar_one_or_none()
+    if user is None or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+    return Token(access_token=create_access_token(str(user.id)))
 
-@app.post("/register")
-async def register(user: UserCreate):
-    async with async_session() as session:
-        new_user = User(username=user.username, hashed_password=hash_password(user.password))
-        session.add(new_user)
-        await session.commit()
-        return {"message": f"Пользователь {user.username} создан"}
 
-@app.post("/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    async with async_session() as session:
-        result = await session.execute(select(User).where(User.username == form_data.username))
-        user = result.scalar_one_or_none()
-        if not user or not verify_password(form_data.password, user.hashed_password):
-            raise HTTPException(status_code=401, detail="Неверный логин или пароль")
-        token = create_access_token({"sub": user.username})
-        return {"access_token": token, "token_type": "bearer"}
+@app.get("/me", response_model=UserOut)
+async def me(user: CurrentUser):
+    return user
+
+
+# ---------- Задачи ----------
+
+@app.get("/tasks", response_model=list[TaskOut])
+async def list_tasks(db: DB, user: CurrentUser):
+    result = await db.execute(
+        select(Task).where(Task.user_id == user.id).order_by(Task.created_at.desc(), Task.id.desc())
+    )
+    return result.scalars().all()
+
+
+@app.post("/tasks", response_model=TaskOut, status_code=201)
+async def create_task(data: TaskCreate, db: DB, user: CurrentUser):
+    title = data.title.strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="Название не может быть пустым")
+    task = Task(title=title, user_id=user.id)
+    db.add(task)
+    await db.commit()
+    await db.refresh(task)
+    return task
+
+
+@app.patch("/tasks/{task_id}", response_model=TaskOut)
+async def update_task(data: TaskUpdate, task: OwnTask, db: DB):
+    if data.title is not None:
+        title = data.title.strip()
+        if not title:
+            raise HTTPException(status_code=422, detail="Название не может быть пустым")
+        task.title = title
+    if data.done is not None:
+        task.done = data.done
+    await db.commit()
+    await db.refresh(task)
+    return task
+
+
+@app.delete("/tasks/{task_id}", status_code=204)
+async def delete_task(task: OwnTask, db: DB):
+    await db.delete(task)
+    await db.commit()
+    return Response(status_code=204)
+
+
+@app.delete("/tasks", status_code=204)
+async def delete_completed(db: DB, user: CurrentUser):
+    """Удаляет все выполненные задачи текущего пользователя."""
+    await db.execute(delete(Task).where(Task.user_id == user.id, Task.done.is_(True)))
+    await db.commit()
+    return Response(status_code=204)

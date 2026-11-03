@@ -1,25 +1,44 @@
-from datetime import datetime, timedelta
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+import logging
+import os
+import secrets
+from datetime import datetime, timedelta, timezone
 
-SECRET_KEY = '741f6bc5288da0a34c7b5950237795c3b753c4fdabcdc428aab48959e7319e22'
+import bcrypt
+import jwt
+
+logger = logging.getLogger(__name__)
+
+# Секрет берётся из окружения и никогда не хранится в репозитории.
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    SECRET_KEY = secrets.token_hex(32)
+    logger.warning("SECRET_KEY не задан — сгенерирован временный, токены сбросятся после перезапуска")
+
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24 * 7))
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _encode(password: str) -> bytes:
+    # bcrypt учитывает только первые 72 байта пароля
+    return password.encode("utf-8")[:72]
+
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(_encode(password), bcrypt.gensalt()).decode("utf-8")
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return bcrypt.checkpw(_encode(plain_password), hashed_password.encode("utf-8"))
+    except ValueError:
+        return False
 
-def create_access_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def create_access_token(subject: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    return jwt.encode({"sub": subject, "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
+
 
 def decode_token(token: str) -> dict:
+    """Бросает jwt.PyJWTError, если токен невалиден или истёк."""
     return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-

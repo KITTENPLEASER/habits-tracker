@@ -1,12 +1,24 @@
 import os
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:5432@localhost:5432/habits_db")
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
 
-engine = create_async_engine(DATABASE_URL, echo=True)
+# По умолчанию — локальный PostgreSQL. В Docker адрес передаётся через переменную окружения.
+# Для быстрого запуска без Postgres можно указать: sqlite+aiosqlite:///./todo.db
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+asyncpg://postgres:postgres@localhost:5432/todo_db",
+)
 
-async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+engine = create_async_engine(DATABASE_URL, echo=os.getenv("SQL_ECHO") == "1")
+
+async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
 
 class Base(DeclarativeBase):
     pass
+
+
+async def get_db():
+    async with async_session() as session:
+        yield session
